@@ -1,7 +1,7 @@
 // Service worker: caches the app shell so Home Rhythm opens offline once installed.
 // Bump CACHE when you change any file below so phones pick up the new version.
 
-const CACHE = 'home-rhythm-v1';
+const CACHE = 'home-rhythm-v2';
 const SHELL = [
   './',
   './index.html',
@@ -14,6 +14,10 @@ const SHELL = [
   './js/schedule.js',
   './js/render.js',
   './js/sheet.js',
+  './js/i18n.js',
+  './js/locales/en-GB.js',
+  './js/locales/fi-FI.js',
+  './js/locales/sv-SE.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',

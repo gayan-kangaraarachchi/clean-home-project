@@ -1,8 +1,9 @@
 // View rendering: header progress ring and the Today / Week / Habits views.
 
-import { AREAS, SLOTS, DOW, ICONS, CHECK_ICON, areaColor } from './constants.js';
-import { keyOf, addDays, diffDays, today, fmtShort, fmtLong, relDay } from './dates.js';
-import { state, ui } from './store.js';
+import { SLOT_KEYS, ICONS, CHECK_ICON, areaColor } from './constants.js';
+import { keyOf, addDays, diffDays, today, fmtShort, fmtLong, fmtDayMonth, weekdayShort, relDay } from './dates.js';
+import { t } from './i18n.js';
+import { state, ui, choreName, choreNote } from './store.js';
 import {
   buildDoneIndex, isDoneOn, statusToday, nextDue, plannedOn, lastDoneOnOrBefore, describe,
 } from './schedule.js';
@@ -32,11 +33,11 @@ function renderHeader(idx) {
 
   $('dateLine').textContent = fmtLong(today());
   $('headline').textContent =
-    total === 0 ? 'Nothing due today' : left === 0 ? 'All done for today' : `${left} chore${left > 1 ? 's' : ''} to go`;
+    total === 0 ? t('header.nothingDue') : left === 0 ? t('header.allDone') : t('header.left', { n: left });
   $('subline').textContent =
-    total === 0 ? 'Enjoy the break. Check the week ahead.'
-      : left === 0 ? 'Nice work. The house thanks you.'
-        : late ? `${late} carried over from earlier days.` : 'Tick them off as you go.';
+    total === 0 ? t('header.subNothing')
+      : left === 0 ? t('header.subAllDone')
+        : late ? t('header.subLate', { n: late }) : t('header.subDefault');
 
   const frac = total ? done / total : 0;
   $('ringArc').setAttribute('stroke-dashoffset', (100.5 * (1 - frac)).toFixed(1));
@@ -46,54 +47,58 @@ function renderHeader(idx) {
 /* ---------- today ---------- */
 
 function choreRow(c, st, dayKey) {
+  const name = choreName(c);
+  const note = choreNote(c);
   let pill = '';
-  if (st.done) pill = '<span class="pill ok">Done</span>';
-  else if (st.lateDays > 0) pill = `<span class="pill late">${st.lateDays === 1 ? 'From yesterday' : st.lateDays + ' days late'}</span>`;
+  if (st.done) pill = `<span class="pill ok">${t('pill.done')}</span>`;
+  else if (st.lateDays === 1) pill = `<span class="pill late">${t('pill.fromYesterday')}</span>`;
+  else if (st.lateDays > 1) pill = `<span class="pill late">${t('pill.late', { n: st.lateDays })}</span>`;
 
+  const label = t(st.done ? 'today.markNotDone' : 'today.markDone', { name });
   return `<div class="row${st.done ? ' done' : ''}">
-    <button class="check" data-toggle="${esc(c.id)}" data-k="${dayKey}" aria-label="${st.done ? 'Mark not done' : 'Mark done'}: ${esc(c.name)}">${CHECK_ICON}</button>
+    <button class="check" data-toggle="${esc(c.id)}" data-k="${dayKey}" aria-label="${esc(label)}">${CHECK_ICON}</button>
     ${glyph(c)}
     <div class="info">
-      <div class="name">${esc(c.name)}</div>
-      <div class="meta"><span>${AREAS[c.area] || 'Other'}</span><span>${describe(c.sched)}</span>${pill}</div>
-      ${c.note ? `<div class="meta">${esc(c.note)}</div>` : ''}
+      <div class="name">${esc(name)}</div>
+      <div class="meta"><span>${t('areas.' + c.area)}</span><span>${describe(c.sched)}</span>${pill}</div>
+      ${note ? `<div class="meta">${esc(note)}</div>` : ''}
     </div>
   </div>`;
 }
 
 function upcoming(idx) {
-  const t = today();
+  const t0 = today();
   const soon = state.chores
     .map((c) => ({ c, st: statusToday(c, idx, state.done), nd: nextDue(c, idx, state.done) }))
-    .filter((x) => !x.st.show && x.nd && diffDays(x.nd, t) > 0 && diffDays(x.nd, t) <= 3)
+    .filter((x) => !x.st.show && x.nd && diffDays(x.nd, t0) > 0 && diffDays(x.nd, t0) <= 3)
     .sort((a, b) => a.nd - b.nd);
   if (!soon.length) return '';
 
-  return `<section class="group"><h2>Coming up</h2>${soon.map((x) => `
+  return `<section class="group"><h2>${t('today.comingUp')}</h2>${soon.map((x) => `
     <div class="row">${glyph(x.c)}
-      <div class="info"><div class="name">${esc(x.c.name)}</div>
+      <div class="info"><div class="name">${esc(choreName(x.c))}</div>
         <div class="meta"><span class="pill soon">${relDay(x.nd)}</span><span>${describe(x.c.sched)}</span></div>
       </div>
-      <button class="iconbtn" data-toggle="${esc(x.c.id)}" data-k="${keyOf(t)}">Do now</button>
+      <button class="iconbtn" data-toggle="${esc(x.c.id)}" data-k="${keyOf(t0)}">${t('today.doNow')}</button>
     </div>`).join('')}</section>`;
 }
 
 function renderToday(idx) {
   if (!state.chores.length) {
-    return `<div class="empty">No habits yet.<br><br><button class="btn" data-add>Add your first chore</button></div>`;
+    return `<div class="empty">${t('today.noHabits')}<br><br><button class="btn" data-add>${t('today.addFirst')}</button></div>`;
   }
   const tk = keyOf(today());
   const items = todayItems(idx);
-  if (!items.length) return `<div class="empty">Nothing due today.</div>` + upcoming(idx);
+  if (!items.length) return `<div class="empty">${t('today.nothingDue')}</div>` + upcoming(idx);
 
   let html = '';
-  for (const slot of Object.keys(SLOTS)) {
+  for (const slot of SLOT_KEYS) {
     const group = items
       .filter((x) => (x.c.slot || 'any') === slot)
       .sort((a, b) => (a.st.done - b.st.done) || ((b.st.lateDays || 0) - (a.st.lateDays || 0)));
     if (!group.length) continue;
     const d = group.filter((x) => x.st.done).length;
-    html += `<section class="group"><h2>${SLOTS[slot]} <small>${d}/${group.length}</small></h2>${group.map((x) => choreRow(x.c, x.st, tk)).join('')}</section>`;
+    html += `<section class="group"><h2>${t('slots.' + slot)} <small>${d}/${group.length}</small></h2>${group.map((x) => choreRow(x.c, x.st, tk)).join('')}</section>`;
   }
   return html + upcoming(idx);
 }
@@ -101,14 +106,14 @@ function renderToday(idx) {
 /* ---------- week ---------- */
 
 function heatmap() {
-  const t = today();
+  const t0 = today();
   const days = 45;
   const count = (d) => (state.done[keyOf(d)] || []).length;
 
   const counts = [];
   let max = 1, total = 0, active = 0;
   for (let i = days - 1; i >= 0; i--) {
-    const n = count(addDays(t, -i));
+    const n = count(addDays(t0, -i));
     counts.push(n);
     max = Math.max(max, n);
     total += n;
@@ -118,43 +123,45 @@ function heatmap() {
   // Streak of consecutive active days; today not counting yet doesn't break it.
   let streak = 0;
   for (let i = 0; i <= 400; i++) {
-    if (count(addDays(t, -i))) streak++;
+    if (count(addDays(t0, -i))) streak++;
     else if (i > 0) break;
   }
 
   const cells = counts.map((n, i) => {
-    const d = addDays(t, -(days - 1 - i));
+    const d = addDays(t0, -(days - 1 - i));
     const pct = n ? 25 + Math.round((75 * n) / max) : 0;
     const style = n ? `background:color-mix(in srgb,var(--ok) ${pct}%,var(--line))` : '';
-    return `<div title="${fmtShort(d)}: ${n} done" style="${style}"></div>`;
+    return `<div title="${esc(t('week.cellTitle', { date: fmtShort(d), n }))}" style="${style}"></div>`;
   }).join('');
 
-  return `<div class="panel" style="margin-top:6px"><h3>Last 45 days</h3><div class="heat">${cells}</div>
-    <div class="stats"><div><b>${total}</b>chores done</div><div><b>${active}</b>active days</div><div><b>${streak}</b>day streak</div></div></div>`;
+  return `<div class="panel" style="margin-top:6px"><h3>${t('week.last45')}</h3><div class="heat">${cells}</div>
+    <div class="stats"><div><b>${total}</b>${t('week.choresDone')}</div><div><b>${active}</b>${t('week.activeDays')}</div><div><b>${streak}</b>${t('week.streak')}</div></div></div>`;
 }
 
 function renderWeek(idx) {
-  const t = today();
-  const start = addDays(t, ui.weekOffset * 7);
+  const t0 = today();
+  const start = addDays(t0, ui.weekOffset * 7);
   const end = addDays(start, 6);
 
   let html = `<div class="weeknav">
-    <button class="iconbtn" data-week="-1" aria-label="Previous 7 days">← Prev</button>
-    <strong>${ui.weekOffset === 0 ? 'Next 7 days' : `${fmtShort(start)} – ${fmtShort(end)}`}</strong>
-    <button class="iconbtn" data-week="1" aria-label="Next 7 days">Next →</button></div><div class="week">`;
+    <button class="iconbtn" data-week="-1" aria-label="${t('week.prevLabel')}">${t('week.prev')}</button>
+    <strong>${ui.weekOffset === 0 ? t('week.next7') : `${fmtShort(start)} – ${fmtShort(end)}`}</strong>
+    <button class="iconbtn" data-week="1" aria-label="${t('week.nextLabel')}">${t('week.next')}</button></div><div class="week">`;
 
   for (let i = 0; i < 7; i++) {
     const d = addDays(start, i);
     const k = keyOf(d);
-    const future = d > t;
+    const future = d > t0;
     const list = state.chores.filter((c) => isDoneOn(state.done, c.id, k) || plannedOn(c, idx, state.done, d));
 
-    html += `<div class="day${k === keyOf(t) ? ' today' : ''}"><div class="dl">${DOW[d.getDay()]}<span>${d.getDate()}.${d.getMonth() + 1}.</span></div><div class="chips">`;
-    if (!list.length) html += `<span class="none">Free day</span>`;
+    html += `<div class="day${k === keyOf(t0) ? ' today' : ''}"><div class="dl">${weekdayShort(d.getDay())}<span>${fmtDayMonth(d)}</span></div><div class="chips">`;
+    if (!list.length) html += `<span class="none">${t('week.freeDay')}</span>`;
     for (const c of list) {
+      const name = choreName(c);
       const dn = isDoneOn(state.done, c.id, k);
-      const action = future ? 'disabled title="Upcoming"' : `data-toggle="${esc(c.id)}" data-k="${k}"`;
-      html += `<button class="chip${dn ? ' done' : ''}" style="--c:${areaColor(c.area)}" ${action} aria-label="${esc(c.name)}${dn ? ' (done)' : ''}"><i></i><span class="t">${esc(c.name)}</span></button>`;
+      const action = future ? `disabled title="${t('week.upcoming')}"` : `data-toggle="${esc(c.id)}" data-k="${k}"`;
+      const label = dn ? `${name} ${t('week.doneSuffix')}` : name;
+      html += `<button class="chip${dn ? ' done' : ''}" style="--c:${areaColor(c.area)}" ${action} aria-label="${esc(label)}"><i></i><span class="t">${esc(name)}</span></button>`;
     }
     html += `</div></div>`;
   }
@@ -164,21 +171,21 @@ function renderWeek(idx) {
 /* ---------- habits ---------- */
 
 function renderHabits(idx) {
-  const t = today();
+  const t0 = today();
   const n = state.chores.length;
-  let html = `<div class="toolbar"><span class="sub">${n} habit${n === 1 ? '' : 's'}</span><button class="btn" data-add>+ Add habit</button></div>`;
-  if (!n) return html + `<div class="empty">Add chores like cleaning the bathroom or checking the garbage, and choose how often they repeat.</div>`;
+  let html = `<div class="toolbar"><span class="sub">${t('habits.count', { n })}</span><button class="btn" data-add>${t('habits.add')}</button></div>`;
+  if (!n) return html + `<div class="empty">${t('habits.empty')}</div>`;
 
   html += '<div class="group">';
   for (const c of state.chores) {
-    const ld = lastDoneOnOrBefore(c, idx, t);
+    const ld = lastDoneOnOrBefore(c, idx, t0);
     const nd = nextDue(c, idx, state.done);
     html += `<div class="row">${glyph(c)}
-      <div class="info"><div class="name">${esc(c.name)}</div>
-        <div class="meta"><span>${describe(c.sched)}</span><span>${SLOTS[c.slot || 'any']}</span></div>
-        <div class="meta"><span>Last: ${ld ? relDay(ld) : 'never'}</span>${nd ? `<span>Next: ${relDay(nd)}</span>` : ''}</div>
+      <div class="info"><div class="name">${esc(choreName(c))}</div>
+        <div class="meta"><span>${describe(c.sched)}</span><span>${t('slots.' + (c.slot || 'any'))}</span></div>
+        <div class="meta"><span>${t('habits.last', { when: ld ? relDay(ld) : t('habits.never') })}</span>${nd ? `<span>${t('habits.next', { when: relDay(nd) })}</span>` : ''}</div>
       </div>
-      <button class="iconbtn" data-edit="${esc(c.id)}">Edit</button></div>`;
+      <button class="iconbtn" data-edit="${esc(c.id)}">${t('habits.edit')}</button></div>`;
   }
   return html + '</div>';
 }

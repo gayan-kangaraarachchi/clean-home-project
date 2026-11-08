@@ -1,9 +1,12 @@
-// Entry point: load data, wire events, register the service worker.
+// Entry point: language, data, events, service worker.
 
 import { keyOf } from './dates.js';
+import { initLocale, setLocale, getLocale, fillLanguagePicker, t } from './i18n.js';
 import { load, save, setView, toggleDone, ui } from './store.js';
 import { render } from './render.js';
 import { openSheet } from './sheet.js';
+
+let storageOk = true;
 
 function onClick(e) {
   const b = e.target.closest('button');
@@ -14,6 +17,22 @@ function onClick(e) {
   if (b.dataset.week) { ui.weekOffset += Number(b.dataset.week); render(); return; }
   if (b.hasAttribute('data-add')) { openSheet(null); return; }
   if (b.dataset.edit) { openSheet(b.dataset.edit); }
+}
+
+function renderStorageNote() {
+  document.getElementById('storeNote').textContent = t(storageOk ? 'storage.saved' : 'storage.blocked');
+}
+
+function setupLanguagePicker() {
+  const select = document.getElementById('langSelect');
+  fillLanguagePicker(select);
+  select.addEventListener('change', () => {
+    setLocale(select.value);
+    document.getElementById('sheetHost').innerHTML = ''; // close an open form; it would be in the old language
+    renderStorageNote();
+    render();
+  });
+  select.value = getLocale();
 }
 
 function watchDayChange() {
@@ -33,11 +52,11 @@ function registerServiceWorker() {
 }
 
 function start() {
+  initLocale();
   load();
-  if (!save()) {
-    document.getElementById('storeNote').textContent =
-      'This browser is blocking storage, so changes will be lost when you close the page.';
-  }
+  storageOk = save();
+  setupLanguagePicker();
+  renderStorageNote();
   document.addEventListener('click', onClick);
   render();
   watchDayChange();

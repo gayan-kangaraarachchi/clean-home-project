@@ -7,6 +7,7 @@ A small daily habits and household chore planner. No build step, no dependencies
 - **Today**: chores due today, grouped by morning, afternoon and evening. Missed chores carry over with a "late" label.
 - **Week**: the next 7 days of planned chores, plus a 45-day history with your streak.
 - **Habits**: add, edit or delete chores. A chore can repeat every day, every N days after it was last done, on weekdays you pick, or once a month.
+- **Languages**: English (UK, default), Suomi (fi-FI) and Svenska (sv-SE), chosen from the picker at the top. Dates, weekday names and plurals follow the language. The built-in starter chores are translated too, until you rename them.
 - Data is saved in the browser's `localStorage` on each device.
 
 ## Project structure
@@ -20,7 +21,12 @@ home-rhythm/
 │   └── styles.css         # Design tokens (light + dark) and all styles
 ├── js/
 │   ├── app.js             # Entry point: boot, click handling, SW registration
-│   ├── constants.js       # Areas, time slots, weekday labels, SVG icons
+│   ├── constants.js       # Area / time-slot keys, SVG icons
+│   ├── i18n.js            # Language registry, t() lookup, plurals, picker
+│   ├── locales/
+│   │   ├── en-GB.js       # English (UK), default and fallback
+│   │   ├── fi-FI.js       # Suomi
+│   │   └── sv-SE.js       # Svenska
 │   ├── dates.js           # Local-date helpers (YYYY-MM-DD keys)
 │   ├── store.js           # State, localStorage persistence, mutations
 │   ├── schedule.js        # Pure scheduling rules (due, late, next, planned)
@@ -75,19 +81,31 @@ The app then opens full-screen from its own icon and works without a connection.
 
 When you change any file, bump `CACHE` in `sw.js` (e.g. `home-rhythm-v2`) so installed copies pick up the new version.
 
+## Adding a language
+
+1. Copy `js/locales/en-GB.js` to `js/locales/<tag>.js` (for example `de-DE.js`) and translate the values. Keep the keys the same. Plural messages are objects keyed by [Intl plural categories](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/PluralRules) (`one`, `other`, …).
+2. In `js/i18n.js`, import it and add it to `LOCALES` with its name in its own language, e.g. `'de-DE': { name: 'Deutsch', messages: deDE }`.
+3. Add the file to `SHELL` in `sw.js` and bump `CACHE`.
+
+Missing keys fall back to English. The chosen language is stored under the `localStorage` key `home-rhythm-locale`.
+
 ## Data format
 
 Stored under the `localStorage` key `home-rhythm-v1`:
 
 ```json
 {
-  "v": 1,
+  "v": 2,
   "chores": [
-    { "id": "bath", "name": "Clean bathroom", "area": "bathroom", "slot": "morning",
-      "sched": { "type": "weekly", "days": [0] }, "note": "", "created": "2026-11-08" }
+    { "id": "bath", "tpl": "bath", "name": null, "note": null, "area": "bathroom", "slot": "morning",
+      "sched": { "type": "weekly", "days": [0] }, "created": "2026-11-08" },
+    { "id": "h1x2y3", "name": "Clean the fridge", "note": "", "area": "kitchen", "slot": "any",
+      "sched": { "type": "interval", "every": 7 }, "created": "2026-11-08" }
   ],
   "done": { "2026-11-08": ["bath", "garbage"] }
 }
 ```
+
+Starter chores have a `tpl` key and `name`/`note` set to `null`, so they display in the current language; once edited, the text is stored as typed. Version 1 data is migrated automatically.
 
 `sched.type` is one of `daily`, `interval` (`every`: days), `weekly` (`days`: 0 = Sunday … 6 = Saturday) or `monthly` (`day`: 1–31).

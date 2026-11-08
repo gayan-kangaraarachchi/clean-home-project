@@ -1,67 +1,68 @@
 // Add / edit habit bottom sheet.
 
-import { AREAS, SLOTS, DOW, WEEK_ORDER } from './constants.js';
-import { today } from './dates.js';
-import { state, upsertChore, deleteChore } from './store.js';
+import { AREA_KEYS, SLOT_KEYS, WEEK_ORDER } from './constants.js';
+import { today, weekdayShort } from './dates.js';
+import { t } from './i18n.js';
+import { state, upsertChore, deleteChore, choreName, choreNote } from './store.js';
 import { render, esc } from './render.js';
 
 const host = () => document.getElementById('sheetHost');
 
-function options(map, selected) {
-  return Object.entries(map)
-    .map(([k, v]) => `<option value="${k}"${k === selected ? ' selected' : ''}>${v}</option>`)
+function options(keys, group, selected) {
+  return keys
+    .map((k) => `<option value="${k}"${k === selected ? ' selected' : ''}>${t(`${group}.${k}`)}</option>`)
     .join('');
 }
 
 function template(c, isEdit) {
   const s = c.sched;
-  const sel = (t) => (s.type === t ? ' selected' : '');
+  const sel = (type) => (s.type === type ? ' selected' : '');
   return `<div class="scrim" id="scrim"><form class="sheet" id="f" novalidate>
-    <h2>${isEdit ? 'Edit habit' : 'New habit'}</h2>
-    <div class="field"><label for="f-name">Name</label>
-      <input id="f-name" maxlength="60" value="${esc(c.name)}" placeholder="e.g. Clean the fridge" required></div>
+    <h2>${t(isEdit ? 'form.titleEdit' : 'form.titleNew')}</h2>
+    <div class="field"><label for="f-name">${t('form.name')}</label>
+      <input id="f-name" maxlength="60" value="${esc(choreName(c))}" placeholder="${esc(t('form.namePlaceholder'))}" required></div>
     <div class="two">
-      <div class="field"><label for="f-area">Area</label><select id="f-area">${options(AREAS, c.area)}</select></div>
-      <div class="field"><label for="f-slot">Time of day</label><select id="f-slot">${options(SLOTS, c.slot || 'any')}</select></div>
+      <div class="field"><label for="f-area">${t('form.area')}</label><select id="f-area">${options(AREA_KEYS, 'areas', c.area)}</select></div>
+      <div class="field"><label for="f-slot">${t('form.slot')}</label><select id="f-slot">${options(SLOT_KEYS, 'slots', c.slot || 'any')}</select></div>
     </div>
-    <div class="field"><label for="f-type">Repeats</label><select id="f-type">
-      <option value="daily"${sel('daily')}>Every day</option>
-      <option value="interval"${sel('interval')}>Every few days</option>
-      <option value="weekly"${sel('weekly')}>On weekdays I pick</option>
-      <option value="monthly"${sel('monthly')}>Once a month</option></select></div>
-    <div class="field" id="o-interval"><label for="f-every">Repeat every</label>
-      <div class="inline"><input id="f-every" type="number" min="1" max="90" value="${s.every || 2}"><span>days after it was last done</span></div></div>
-    <div class="field" id="o-weekly"><span class="lbl">On these days</span><div class="days">
-      ${WEEK_ORDER.map((d) => `<label><input type="checkbox" id="f-d${d}" value="${d}"${(s.days || []).includes(d) ? ' checked' : ''}><span>${DOW[d]}</span></label>`).join('')}
+    <div class="field"><label for="f-type">${t('form.repeats')}</label><select id="f-type">
+      <option value="daily"${sel('daily')}>${t('form.optDaily')}</option>
+      <option value="interval"${sel('interval')}>${t('form.optInterval')}</option>
+      <option value="weekly"${sel('weekly')}>${t('form.optWeekly')}</option>
+      <option value="monthly"${sel('monthly')}>${t('form.optMonthly')}</option></select></div>
+    <div class="field" id="o-interval"><label for="f-every">${t('form.every')}</label>
+      <div class="inline"><input id="f-every" type="number" min="1" max="90" value="${s.every || 2}"><span>${t('form.everyHint')}</span></div></div>
+    <div class="field" id="o-weekly"><span class="lbl">${t('form.days')}</span><div class="days">
+      ${WEEK_ORDER.map((d) => `<label><input type="checkbox" id="f-d${d}" value="${d}"${(s.days || []).includes(d) ? ' checked' : ''}><span>${weekdayShort(d)}</span></label>`).join('')}
     </div></div>
-    <div class="field" id="o-monthly"><label for="f-mday">Day of month</label>
-      <div class="inline"><input id="f-mday" type="number" min="1" max="31" value="${s.day || 1}"><span>moves to the last day in shorter months</span></div></div>
-    <div class="field"><label for="f-note">Notes</label>
-      <textarea id="f-note" rows="2" maxlength="200" placeholder="Optional checklist or tip">${esc(c.note || '')}</textarea></div>
+    <div class="field" id="o-monthly"><label for="f-mday">${t('form.monthDay')}</label>
+      <div class="inline"><input id="f-mday" type="number" min="1" max="31" value="${s.day || 1}"><span>${t('form.monthDayHint')}</span></div></div>
+    <div class="field"><label for="f-note">${t('form.notes')}</label>
+      <textarea id="f-note" rows="2" maxlength="200" placeholder="${esc(t('form.notesPlaceholder'))}">${esc(choreNote(c))}</textarea></div>
     <p class="err" id="f-err" hidden></p>
     <div class="actions">
-      ${isEdit ? '<button type="button" class="btn danger" id="f-del">Delete</button>' : ''}
-      <div class="r"><button type="button" class="btn ghost" id="f-cancel">Cancel</button><button type="submit" class="btn">Save</button></div>
+      ${isEdit ? `<button type="button" class="btn danger" id="f-del">${t('form.delete')}</button>` : ''}
+      <div class="r"><button type="button" class="btn ghost" id="f-cancel">${t('form.cancel')}</button><button type="submit" class="btn">${t('form.save')}</button></div>
     </div>
   </form></div>`;
 }
 
-/** Read and validate the form. Returns {sched} or {error}. */
+/** Read and validate the repeat settings. Returns {sched} or {error}. */
 function readSchedule(q) {
   const type = q('#f-type').value;
   const sched = { type };
   if (type === 'interval') {
     const n = parseInt(q('#f-every').value, 10);
-    if (!(n >= 1 && n <= 90)) return { error: 'Repeat every 1 to 90 days.' };
+    if (!(n >= 1 && n <= 90)) return { error: t('form.errEvery') };
     sched.every = n;
   }
   if (type === 'weekly') {
     sched.days = WEEK_ORDER.filter((d) => q('#f-d' + d).checked);
-    if (!sched.days.length) return { error: 'Pick at least one day.' };
+    if (!sched.days.length) return { error: t('form.errDays') };
   }
   if (type === 'monthly') {
     const n = parseInt(q('#f-mday').value, 10);
-    if (!(n >= 1 && n <= 31)) return { error: 'Pick a day from 1 to 31.' };
+    if (!(n >= 1 && n <= 31)) return { error: t('form.errMonthDay') };
     sched.day = n;
   }
   return { sched };
@@ -71,7 +72,7 @@ export function openSheet(id) {
   const existing = state.chores.find((c) => c.id === id);
   const chore = existing
     ? structuredClone(existing)
-    : { name: '', area: 'other', slot: 'any', sched: { type: 'weekly', days: [today().getDay()] }, note: '' };
+    : { name: '', note: '', area: 'other', slot: 'any', sched: { type: 'weekly', days: [today().getDay()] } };
 
   const root = host();
   root.innerHTML = template(chore, Boolean(existing));
@@ -100,7 +101,7 @@ export function openSheet(id) {
       const b = e.currentTarget;
       if (!b.classList.contains('armed')) {
         b.classList.add('armed');
-        b.textContent = 'Tap again to delete';
+        b.textContent = t('form.deleteConfirm');
         return;
       }
       deleteChore(id);
@@ -116,18 +117,20 @@ export function openSheet(id) {
     err.hidden = true;
 
     const name = q('#f-name').value.trim();
-    if (!name) return fail('Give the habit a name.', q('#f-name'));
+    if (!name) return fail(t('form.errName'), q('#f-name'));
 
     const { sched, error } = readSchedule(q);
     if (error) return fail(error);
 
+    const note = q('#f-note').value.trim();
     upsertChore({
       ...chore,
-      name,
+      // Starter chores stay translatable while their text is left as the default.
+      name: chore.tpl && name === choreName({ tpl: chore.tpl, name: null }) ? null : name,
+      note: chore.tpl && note === choreNote({ tpl: chore.tpl, note: null }) ? null : note,
       area: q('#f-area').value,
       slot: q('#f-slot').value,
       sched,
-      note: q('#f-note').value.trim(),
     });
     close();
     render();

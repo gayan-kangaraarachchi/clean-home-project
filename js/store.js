@@ -2,6 +2,7 @@
 
 import { STORAGE_KEY, VIEW_KEY, HISTORY_DAYS } from './constants.js';
 import { keyOf, addDays, today } from './dates.js';
+import { t, allTranslations } from './i18n.js';
 
 /** UI state that is not persisted with the data. */
 export const ui = {
@@ -15,25 +16,47 @@ export let state = null;
 /**
  * @typedef {{type:'daily'} | {type:'interval', every:number} |
  *           {type:'weekly', days:number[]} | {type:'monthly', day:number}} Schedule
- * @typedef {{id:string, name:string, area:string, slot:string, sched:Schedule,
- *            note:string, created:string}} Chore
+ * @typedef {{id:string, name:string|null, note:string|null, tpl?:string, area:string,
+ *            slot:string, sched:Schedule, created:string}} Chore
+ *
+ * Starter chores carry `tpl` and keep name/note = null, so they are shown in the
+ * current language (locales: starter.<tpl>.name/note) until the user edits them.
  */
 
+const STARTERS = [
+  { tpl: 'garbage', area: 'waste', slot: 'evening', sched: { type: 'daily' } },
+  { tpl: 'vac-room', area: 'floors', slot: 'morning', sched: { type: 'interval', every: 2 } },
+  { tpl: 'vac-house', area: 'floors', slot: 'afternoon', sched: { type: 'weekly', days: [6] } },
+  { tpl: 'bath', area: 'bathroom', slot: 'morning', sched: { type: 'weekly', days: [0] } },
+  { tpl: 'dryer', area: 'laundry', slot: 'any', sched: { type: 'weekly', days: [3] } },
+  { tpl: 'washer', area: 'laundry', slot: 'any', sched: { type: 'monthly', day: 1 } },
+];
+
 function starter() {
-  const t = keyOf(today());
+  const created = keyOf(today());
   return {
-    v: 1,
+    v: 2,
     done: {},
-    chores: [
-      { id: 'garbage', name: 'Check garbage', area: 'waste', slot: 'evening', sched: { type: 'daily' }, note: 'Empty bins if full, sort recycling.', created: t },
-      { id: 'vac-room', name: 'Vacuum the room', area: 'floors', slot: 'morning', sched: { type: 'interval', every: 2 }, note: '', created: t },
-      { id: 'vac-house', name: 'Vacuum the whole house', area: 'floors', slot: 'afternoon', sched: { type: 'weekly', days: [6] }, note: 'All rooms, hallway and stairs.', created: t },
-      { id: 'bath', name: 'Clean bathroom', area: 'bathroom', slot: 'morning', sched: { type: 'weekly', days: [0] }, note: 'Toilet, sink, shower, mirror, floor.', created: t },
-      { id: 'dryer', name: 'Clean dryer', area: 'laundry', slot: 'any', sched: { type: 'weekly', days: [3] }, note: 'Lint filter and condenser tray.', created: t },
-      { id: 'washer', name: 'Clean washing machine', area: 'laundry', slot: 'any', sched: { type: 'monthly', day: 1 }, note: 'Hot empty cycle, wipe door seal and detergent drawer.', created: t },
-    ],
+    chores: STARTERS.map((s) => ({ ...s, id: s.tpl, name: null, note: null, created })),
   };
 }
+
+/** v1 stored starter chores with English text: turn untouched ones into translatable templates. */
+function migrate(s) {
+  if ((s.v || 1) >= 2) return s;
+  for (const c of s.chores) {
+    if (!STARTERS.some((x) => x.tpl === c.id)) continue;
+    const base = `starter.${c.id}`;
+    if (allTranslations(`${base}.name`).includes(c.name)) { c.tpl = c.id; c.name = null; }
+    if (c.tpl && allTranslations(`${base}.note`).includes(c.note || '')) c.note = null;
+  }
+  s.v = 2;
+  return s;
+}
+
+/** Name and note in the current language. */
+export const choreName = (c) => c.name ?? (c.tpl ? t(`starter.${c.tpl}.name`) : '');
+export const choreNote = (c) => c.note ?? (c.tpl ? t(`starter.${c.tpl}.note`) : '');
 
 const isValid = (s) => s && Array.isArray(s.chores) && s.done && typeof s.done === 'object';
 
@@ -41,7 +64,7 @@ export function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    state = isValid(parsed) ? parsed : starter();
+    state = isValid(parsed) ? migrate(parsed) : starter();
   } catch {
     state = starter();
   }

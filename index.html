@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -28,11 +28,19 @@
 </head>
 <body>
   <div class="app">
+    <div class="langbar">
+      <label for="langSelect" class="lang">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+        <span class="visually-hidden" data-i18n="app.language">Language</span>
+        <select id="langSelect"></select>
+      </label>
+    </div>
+
     <header class="top">
       <div class="hd-text">
         <div class="eyebrow" id="dateLine">Today</div>
         <h1 id="headline">Your home, on rhythm</h1>
-        <p class="sub" id="subline">Loading your chores…</p>
+        <p class="sub" id="subline" data-i18n="header.loading">Loading your chores…</p>
       </div>
       <div class="ring" aria-hidden="true">
         <svg viewBox="0 0 40 40">
@@ -46,13 +54,13 @@
     </header>
 
     <nav class="tabs" role="tablist">
-      <button role="tab" id="tab-today" aria-selected="true" data-view="today">Today</button>
-      <button role="tab" id="tab-week" aria-selected="false" data-view="week">Week</button>
-      <button role="tab" id="tab-habits" aria-selected="false" data-view="habits">Habits</button>
+      <button role="tab" id="tab-today" aria-selected="true" data-view="today" data-i18n="tabs.today">Today</button>
+      <button role="tab" id="tab-week" aria-selected="false" data-view="week" data-i18n="tabs.week">Week</button>
+      <button role="tab" id="tab-habits" aria-selected="false" data-view="habits" data-i18n="tabs.habits">Habits</button>
     </nav>
 
     <main id="view"></main>
-    <p class="foot" id="storeNote">Saved on this device.</p>
+    <p class="foot" id="storeNote" data-i18n="storage.saved">Saved on this device.</p>
   </div>
 
   <div id="sheetHost"></div>

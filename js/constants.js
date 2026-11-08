@@ -1,32 +1,18 @@
-// Static configuration: areas, time-of-day slots, weekday labels and inline SVG icons.
+// Static configuration: storage keys, area and time-of-day keys, and inline SVG icons.
+// Display labels live in js/locales/*.js (areas.*, slots.*).
 
 export const STORAGE_KEY = 'home-rhythm-v1';
 export const VIEW_KEY = 'home-rhythm-v1-view';
 export const HISTORY_DAYS = 400; // completion history kept in storage
 
-export const AREAS = {
-  bathroom: 'Bathroom',
-  laundry: 'Laundry',
-  floors: 'Floors',
-  waste: 'Garbage',
-  kitchen: 'Kitchen',
-  other: 'Other',
-};
-
-export const SLOTS = {
-  morning: 'Morning',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
-  any: 'Any time',
-};
-
-export const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
+export const AREA_KEYS = ['bathroom', 'laundry', 'floors', 'waste', 'kitchen', 'other'];
+export const SLOT_KEYS = ['morning', 'afternoon', 'evening', 'any'];
+export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first (0 = Sunday)
 
 export const areaColor = (area) => `var(--a-${area === 'bathroom' ? 'bath' : area})`;
 
-const svg = (body, extra = '') =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${body}</svg>`;
+const svg = (body) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 
 export const ICONS = {
   bathroom: svg('<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>'),

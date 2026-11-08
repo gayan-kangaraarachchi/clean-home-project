@@ -1,8 +1,9 @@
 // Scheduling rules: when is a chore due, is it late, and when does it come next.
 // Pure functions of (chore, completion index, date) — no DOM, no storage.
 
-import { DOW, WEEK_ORDER } from './constants.js';
-import { keyOf, parseKey, addDays, diffDays, today } from './dates.js';
+import { WEEK_ORDER } from './constants.js';
+import { keyOf, parseKey, addDays, diffDays, today, weekdayShort } from './dates.js';
+import { t } from './i18n.js';
 
 const LOOKBACK_DAYS = 62;
 
@@ -110,19 +111,19 @@ export function plannedOn(chore, idx, done, d) {
   return gap >= 0 && gap % every === 0;
 }
 
-/** Human description of a schedule. */
+/** Human description of a schedule, in the current language. */
 export function describe(s) {
   switch (s.type) {
     case 'daily':
-      return 'Every day';
+      return t('sched.daily');
     case 'interval':
-      return s.every === 1 ? 'Every day' : `Every ${s.every} days`;
+      return t('sched.interval', { n: s.every });
     case 'weekly': {
       const days = WEEK_ORDER.filter((x) => (s.days || []).includes(x));
-      return days.length === 7 ? 'Every day' : 'Weekly · ' + days.map((x) => DOW[x]).join(', ');
+      return days.length === 7 ? t('sched.daily') : t('sched.weekly', { days: days.map(weekdayShort).join(', ') });
     }
     case 'monthly':
-      return `Monthly · day ${s.day}`;
+      return t('sched.monthly', { n: s.day });
     default:
       return '';
   }

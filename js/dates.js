@@ -1,7 +1,7 @@
 // Date helpers. Days are stored as local "YYYY-MM-DD" keys; Date objects are pinned to noon
-// so daylight-saving changes never shift a day.
+// so daylight-saving changes never shift a day. Formatting follows the selected language.
 
-import { DOW } from './constants.js';
+import { getLocale } from './i18n.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -23,17 +23,24 @@ export const diffDays = (a, b) => Math.round((parseKey(keyOf(a)) - parseKey(keyO
 
 export const today = () => parseKey(keyOf(new Date()));
 
-export const fmtShort = (d) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+const fmt = (d, opts) => d.toLocaleDateString(getLocale(), opts);
 
-export const fmtLong = (d) =>
-  d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+export const fmtShort = (d) => fmt(d, { day: 'numeric', month: 'short' });
+export const fmtLong = (d) => fmt(d, { weekday: 'long', day: 'numeric', month: 'long' });
+export const fmtDayMonth = (d) => fmt(d, { day: 'numeric', month: 'numeric' });
 
-/** "today", "tomorrow", "Wed", or a short date. */
+/** Short weekday name for 0 = Sunday … 6 = Saturday, in the current language. */
+export function weekdayShort(dow) {
+  const s = new Date(2023, 0, 1 + dow, 12).toLocaleDateString(getLocale(), { weekday: 'short' }); // 1 Jan 2023 = Sunday
+  return s.charAt(0).toLocaleUpperCase(getLocale()) + s.slice(1);
+}
+
+/** "today", "tomorrow", a weekday within the week, or a short date. */
 export function relDay(d) {
   const n = diffDays(d, today());
-  if (n === 0) return 'today';
-  if (n === 1) return 'tomorrow';
-  if (n === -1) return 'yesterday';
-  if (n > 1 && n < 7) return DOW[d.getDay()];
+  if (n >= -1 && n <= 1) {
+    return new Intl.RelativeTimeFormat(getLocale(), { numeric: 'auto' }).format(n, 'day');
+  }
+  if (n > 1 && n < 7) return weekdayShort(d.getDay());
   return fmtShort(d);
 }
